@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <h1>모델 예측: {{ model.model_name }}</h1>
+
+  <!-- 1. CSV 파일로 예측 -->
+  <div class="card">
+    <h2>1. CSV 파일로 일괄 예측</h2>
+    <p><small>모델 학습에 사용된 것과 동일한 컬럼 구조를 가진 CSV 파일을 업로드하세요.</small></p>
+    <form action="/data/models/{{ model.id }}/predict-file" method="post" enctype="multipart/form-data">
+      <input type="file" name="file" accept=".csv" required>
+      <button type="submit" class="button-primary">파일로 예측 실행</button>
+    </form>
+  </div>
+
+  <!-- 2. 직접 입력으로 예측 -->
+  <div class="card">
+    <h2>2. 개별 값 직접 입력하여 예측</h2>
+    <p><small>모델 학습에 사용된 아래의 모든 변수 값을 입력하세요.</small></p>
+    <form id="predict-manual-form" action="/data/models/{{ model.id }}/predict-manual" method="post">
+
+      <!-- 👇 수치형 데이터 입력 UI -->
+      {% if feature_info.numeric %}
+      <h4>수치형 데이터</h4>
+      <div class="input-grid">
+        {% for feature in feature_info.numeric %}
+        <div class="form-group">
+          <label for="feature-{{ feature }}">{{ feature }}</label>
+          <input type="number" step="any" id="feature-{{ feature }}" name="{{ feature }}" required class="form-input">
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- 👇 범주형/문자열 데이터 입력 UI -->
+      {% set categorical_features = (feature_info.onehot or []) + (feature_info.target or []) + (feature_info.sentence or []) %}
+      {% if categorical_features %}
+      <h4>범주형/문자열 데이터</h4>
+      <div class="input-grid">
+        {% for feature in categorical_features %}
+        <div class="form-group">
+          <label for="feature-{{ feature }}">{{ feature }}</label>
+          <input type="text" id="feature-{{ feature }}" name="{{ feature }}" required class="form-input">
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <button type="submit" class="button-primary" style="margin-top: 1.5rem;">직접 입력으로 예측 실행</button>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .container { max-width: 960px; } .card { margin-bottom: 2rem; } .button-primary { margin-top: 1rem; }
+  .input-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; }
+  .form-group label { display: block; margin-bottom: 0.25rem; font-weight: 500;}
+  .form-input { width: 100%; padding: 0.5rem; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; }
+  h4 { margin-top: 1.5rem; border-bottom: 1px solid #eee; padding-bottom: 0.5rem; }
+</style>
+{% endblock %}

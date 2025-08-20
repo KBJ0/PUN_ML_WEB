@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- 👇 페이지 제목 수정 -->
+  <title>{{ title or "부산 Datory Lab" }}</title>
+  <link rel="stylesheet" href="/static/styles.css" />
+  {% block head_extra %}{% endblock %}
+</head>
+<body>
+  <header>
+    <nav>
+      <!-- 👇 로고 텍스트 수정 -->
+      <a href="/" class="logo" style="display: flex; align-items: center; text-decoration: none; color: inherit;">
+        <img src="/static/images/logo.png" alt="부산 Datory Lab 로고" height="40">
+        <span style="margin-left: 0.75rem;">부산 Datory Lab</span>
+      </a>
+      <div class="menu-items">
+        {% if request.session.get('user_id') %}
+          <a href="/data/upload">데이터 업로드</a>
+          <form method="post" action="/auth/logout" style="display:inline">
+            <button type="submit" class="logout-button">로그아웃</button>
+          </form>
+        {% else %}
+          <a href="/auth/login">로그인</a>
+          <a href="/auth/register">회원가입</a>
+        {% endif %}
+        <a href="/docs" target="_blank">API Docs</a>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    {% block content %}{% endblock %}
+  </main>
+
+  {% if load_app_js %}
+  <script src="/static/app.js" defer></script>
+  {% endif %}
+</body>
+</html>

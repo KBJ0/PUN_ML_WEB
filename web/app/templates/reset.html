@@ -1,0 +1,9 @@
+{% extends "base.html" %}{% block content %}
+<h1>비밀번호 재설정</h1>
+{% if error %}<p class="error">{{ error }}</p>{% endif %}
+<form method="post">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <label>새 비밀번호 <input type="password" name="password" required></label>
+  <button type="submit">변경</button>
+</form>
+{% endblock %}

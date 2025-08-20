@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <h1>데이터 프로파일링 및 전처리</h1>
+
+  <form id="preprocess-form" action="/data/{{ data.id }}/preprocess" method="post">
+    <!-- 1. 데이터 분석 및 컬럼 선택 -->
+    <div class="card">
+      <h2>1. 데이터 분석 및 사용할 컬럼 선택</h2>
+      <p><small>각 컬럼을 클릭하여 모델 학습에 사용할지(파란색), 사용하지 않을지(주황색) 선택하세요. '미사용' 컬럼은 자동으로 제거됩니다.</small></p>
+      <input type="hidden" name="drop_columns" id="drop_columns_input">
+      <div class="column-type-grid">
+        <div class="column-group">
+          <h3>수치형 ({{ profile.numeric_cols | length }})</h3>
+          <div class="column-tags">
+            {% for col in profile.numeric_cols %}<span class="column-tag use" data-column-name="{{ col }}">{{ col }}</span>{% else %}<span>-</span>{% endfor %}
+          </div>
+        </div>
+        <div class="column-group">
+          <h3>범주형 ({{ profile.categorical_cols | length }})</h3>
+          <div class="column-tags">
+            {% for col in profile.categorical_cols %}<span class="column-tag use" data-column-name="{{ col }}">{{ col }}</span>{% else %}<span>-</span>{% endfor %}
+          </div>
+        </div>
+        <div class="column-group">
+          <h3>날짜/시간 ({{ profile.datetime_cols | length }})</h3>
+          <div class="column-tags">
+            {% for col in profile.datetime_cols %}<span class="column-tag use" data-column-name="{{ col }}">{{ col }}</span>{% else %}<span>-</span>{% endfor %}
+          </div>
+        </div>
+        <div class="column-group">
+          <h3>불리언 ({{ profile.bool_cols | length }})</h3>
+          <div class="column-tags">
+            {% for col in profile.bool_cols %}<span class="column-tag use" data-column-name="{{ col }}">{{ col }}</span>{% else %}<span>-</span>{% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 2. 상세 전처리 규칙 설정 -->
+    <div class="card">
+      <h2>2. 상세 전처리 규칙 설정</h2>
+
+      <div class="form-group">
+        <label for="row_limit">사용할 행 개수 (비워두면 전체 사용)</label>
+        <input type="number" name="row_limit" id="row_limit" placeholder="예: 1000">
+      </div>
+
+      <div class="form-group">
+        <label>새 컬럼 추가</label>
+        <div id="new-column-container"></div>
+        <button type="button" class="btn-add" onclick="addNewColumnRule()">+ 새 컬럼 추가</button>
+      </div>
+
+      <div class="form-group">
+        <label>결측치 처리</label>
+        <div id="missing-value-rules-container">
+          {% for col in profile.missing_cols %}<div class="rule-item missing-rule-item" data-column="{{ col }}"><span class="column-name">{{ col }}</span><select name="missing_value_rules"><option value="">처리 안 함</option><option value="{{ col }}|fill_zero">0으로 채우기</option><option value="{{ col }}|drop_row">행 제거</option></select></div>{% endfor %}
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label>조건부 행 제거 (문자열)</label>
+        <div id="filter-rules-container"></div>
+        <button type="button" class="btn-add" onclick="addFilterRule()">+ 문자열 규칙 추가</button>
+      </div>
+
+      <div class="form-group">
+        <label>조건부 행 제거 (수치형)</label>
+        <small>'사용'으로 선택된 수치형 컬럼에 대해 필터링 규칙을 추가할 수 있습니다.</small>
+        <div id="numeric-filter-container"></div>
+        <button type="button" class="btn-add" onclick="addNumericFilterRule()">+ 수치형 규칙 추가</button>
+      </div>
+    </div>
+
+    <button type="submit" class="button-primary">전처리 실행 및 결과 확인</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .container { max-width: 1200px; } .card { margin-bottom: 2rem; } .column-type-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1.5rem; } .column-group h3 { margin-top: 0; margin-bottom: 0.5rem; font-size: 1.1rem; border-bottom: 2px solid #eee; padding-bottom: 0.5rem; } .column-tags { display: flex; flex-wrap: wrap; gap: 8px; } .column-tag { padding: 6px 12px; border-radius: 15px; font-size: 0.9em; cursor: pointer; transition: all 0.2s ease-in-out; border: 1px solid transparent; } .column-tag.use { background-color: #e7f3ff; color: #0056b3; border-color: #b3d7ff; } .column-tag.use:hover { background-color: #cce5ff; } .column-tag.not-use { background-color: #fff4e6; color: #995400; border-color: #ffcda1; text-decoration: line-through; } .column-tag.not-use:hover { background-color: #ffe8cc; } .form-group { margin-bottom: 1.5rem; } .form-group label { display: block; font-weight: bold; margin-bottom: 0.5rem; } .form-group small { display: block; margin-bottom: 0.5rem; color: #555; } .rule-item { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; } .rule-item input, .rule-item select { padding: 0.5rem; border: 1px solid #ccc; border-radius: 4px; } .rule-item .column-name { font-weight: bold; min-width: 150px; } .btn-remove { background-color: #dc3545; color: white; border: none; cursor: pointer; padding: 5px 10px; border-radius: 4px; } .btn-add { background-color: #28a745; color: white; border: none; cursor: pointer; padding: 8px 12px; border-radius: 4px; margin-top: 10px; } .button-primary { width: 100%; background-color: #007bff; color: white; border: none; padding: 1rem; cursor: pointer; border-radius: 5px; font-size: 1.2rem; font-weight: bold; }
+</style>
+
+<script>
+  const ALL_COLUMNS = {{ data.column_types.keys()|list|tojson }};
+  const NUMERIC_COLUMNS = {{ profile.numeric_cols|tojson }};
+
+  function removeRule(id) { document.getElementById(id).remove(); }
+
+  function addFilterRule() {
+    const container = document.getElementById('filter-rules-container');
+    const ruleId = Date.now();
+    const newRule = document.createElement('div');
+    newRule.className = 'rule-item';
+    newRule.id = `filter-rule-${ruleId}`;
+    let options = ALL_COLUMNS.map(col => `<option value="${col}">${col}</option>`).join('');
+    newRule.innerHTML = `<select name="filter_contains_rules_col">${options}</select><span>에</span><input type="text" name="filter_contains_rules_kw" placeholder="포함된 단어" required><span>가 있으면 행 제거</span><button type="button" class="btn-remove" onclick="removeRule('filter-rule-${ruleId}')">X</button>`;
+    container.appendChild(newRule);
+  }
+
+  function addNewColumnRule() {
+    const container = document.getElementById('new-column-container');
+    const ruleId = Date.now();
+    const newRule = document.createElement('div');
+    newRule.className = 'rule-item';
+    newRule.id = `new-col-rule-${ruleId}`;
+    newRule.innerHTML = `<input type="text" name="new_column_rules_name" placeholder="새 컬럼명" required><span>=</span><input type="text" name="new_column_rules_formula" style="flex-grow: 1;" placeholder="계산식 (예: (불량수량 / 생산수량) * 100)" required><button type="button" class="btn-remove" onclick="removeRule('new-col-rule-${ruleId}')">X</button>`;
+    container.appendChild(newRule);
+  }
+
+  function addNumericFilterRule() {
+    const container = document.getElementById('numeric-filter-container');
+    const ruleId = Date.now();
+    const newRule = document.createElement('div');
+    newRule.className = 'rule-item';
+    newRule.id = `num-filter-${ruleId}`;
+    let colOptions = NUMERIC_COLUMNS.map(col => `<option value="${col}">${col}</option>`).join('');
+    newRule.innerHTML = `<select name="numeric_filter_col">${colOptions}</select><select name="numeric_filter_op"><option value="==">==</option><option value="!=">!=</option><option value=">">&gt;</option><option value="<">&lt;</option><option value=">=">&gt;=</option><option value="<=">&lt;=</option></select><input type="number" name="numeric_filter_val" placeholder="값" required step="any"><span>인 행을 제거</span><button type="button" class="btn-remove" onclick="removeRule('num-filter-${ruleId}')">X</button>`;
+    container.appendChild(newRule);
+  }
+
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('preprocess-form');
+    const columnTags = document.querySelectorAll('.column-tag');
+
+    function updateDropColumns() {
+      const notUseColumns = Array.from(document.querySelectorAll('.column-tag.not-use')).map(tag => tag.dataset.columnName);
+      document.getElementById('drop_columns_input').value = notUseColumns.join(',');
+      document.querySelectorAll('.missing-rule-item').forEach(item => {
+        item.style.display = notUseColumns.includes(item.dataset.column) ? 'none' : 'flex';
+      });
+    }
+
+    columnTags.forEach(tag => {
+      tag.addEventListener('click', () => {
+        tag.classList.toggle('use');
+        tag.classList.toggle('not-use');
+        updateDropColumns();
+      });
+    });
+
+    form.addEventListener('submit', function(e) {
+      e.preventDefault();
+      updateDropColumns();
+
+      const formData = new FormData(form);
+      const payload = {
+        row_limit: formData.get('row_limit') ? parseInt(formData.get('row_limit')) : null,
+        drop_columns: formData.get('drop_columns').split(',').filter(c => c),
+        new_column_rules: [], missing_value_rules: [], filter_contains_rules: [], numeric_filter_rules: []
+      };
+
+      payload.missing_value_rules = Array.from(formData.getAll('missing_value_rules')).filter(v=>v).map(v=>{ const [c,m]=v.split('|'); return {column:c, method:m}; });
+      payload.filter_contains_rules = formData.getAll('filter_contains_rules_col').map((c, i) => ({ column: c, keyword: formData.getAll('filter_contains_rules_kw')[i] }));
+      payload.new_column_rules = formData.getAll('new_column_rules_name').map((n, i) => ({ name: n, formula: formData.getAll('new_column_rules_formula')[i] }));
+      payload.numeric_filter_rules = formData.getAll('numeric_filter_col').map((col, i) => ({
+        column: col, operator: formData.getAll('numeric_filter_op')[i], value: parseFloat(formData.getAll('numeric_filter_val')[i])
+      }));
+
+      fetch(form.action, {
+        method: 'POST',
+        credentials: "same-origin", // 로그인 정보(쿠키) 전송
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      }).then(response => {
+        if (response.ok) {
+          window.location.href = "/"; // 성공 시 마이페이지로 이동
+        } else {
+          alert('전처리 중 오류가 발생했습니다.');
+        }
+      });
+    });
+    updateDropColumns();
+  });
+</script>
+{% endblock %}

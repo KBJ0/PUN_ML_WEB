@@ -1,0 +1,108 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  {% if request.session.get('user_id') %}
+    <!-- 로그인 시: 마이페이지 -->
+    <h1>마이페이지</h1>
+    <p>업로드한 데이터 목록입니다. 파일명을 클릭하여 전처리를 진행하거나, 전처리된 파일로 모델 학습을 시작할 수 있습니다.</p>
+
+    <div class="card">
+      <h2>데이터 목록</h2>
+      <div class="file-list">
+        <div class="file-item header data-header">
+          <span>파일명</span>
+          <span>상태</span>
+          <span>데이터 형태</span>
+          <span>완료 시간</span>
+          <span>작업</span>
+        </div>
+        {% for file in files %}
+        <div class="file-item data-item">
+          <span>{{ file.original_filename }}</span>
+          <span>
+            {% if file.is_processed %}<span class="status processed">전처리 완료</span>
+            {% else %}<span class="status original">원본</span>{% endif %}
+          </span>
+          <span>{{ file.n_rows }}x{{ file.n_cols }}</span>
+          <span>{{ file.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+          <span>
+            {% if file.is_processed %}<a href="/data/{{ file.id }}/select-model" class="btn-action">모델 학습</a>
+            {% else %}<a href="/data/{{ file.id }}" class="btn-action">전처리</a>{% endif %}
+          </span>
+        </div>
+        {% else %}
+        <p style="padding: 1rem; text-align: center;">업로드한 데이터가 없습니다.</p>
+        {% endfor %}
+      </div>
+      <a href="/data/upload" class="cta-button" style="margin-top: 1rem;">+ 새 데이터 업로드</a>
+    </div>
+
+    <!-- 👇 학습된 모델 목록 UI 수정 -->
+    <div class="card">
+      <h2>학습된 모델 목록</h2>
+      <div class="file-list">
+        <div class="file-item header model-header">
+          <span>원본 파일</span>
+          <span>모델</span>
+          <span>예측 대상</span>
+          <span>RMSE</span>
+          <span>MAE</span>
+          <span>R²</span>
+          <span>완료 시간</span>
+          <span>작업</span>
+        </div>
+        {% for model in models %}
+        <div class="file-item model-item">
+          <!-- 👇 모든 항목을 <td>가 아닌 <span>으로 변경하여 그리드 문제를 해결합니다. -->
+          <span>{{ model.source_datafile.original_filename.replace('[Processed] ', '') }}</span>
+          <span>{{ model.model_name.split('_')[0] }}</span>
+          <span>{{ model.model_name.split('_')[1] }}</span>
+          <span>{{ "%.4f"|format(model.rmse) }}</span>
+          <span>{{ "%.4f"|format(model.mae) }}</span>
+          <span>{{ "%.4f"|format(model.r2) }}</span>
+          <span>{{ model.created_at.strftime('%Y-%m-%d %H:%M') }}</span>
+          <span><a href="/data/models/{{ model.id }}/predict" class="btn-action predict">예측</a></span>
+        </div>
+        {% else %}
+        <p style="padding: 1rem; text-align: center;">학습된 모델이 없습니다.</p>
+        {% endfor %}
+      </div>
+    </div>
+
+  {% else %}
+    <!-- 비로그인 시: 환영 페이지 -->
+    <div class="hero-section">
+      <h1>부산 Datory Lab Page에 오신 것을 환영합니다.</h1>
+      <p style="font-size: 1.1em; color: #555;">
+        복잡한 코딩 없이, 당신의 데이터를 활용하여 직접 머신러닝 모델을 만들어보세요.<br>
+        제조업의 불량률 예측부터 다양한 산업 데이터 분석까지, 누구나 쉽게 접근할 수 있는 ML 환경을 제공합니다.
+      </p>
+      <a href="/auth/login" class="cta-button">로그인하여 시작하기</a>
+    </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .container { max-width: 1200px; } /* 너비 확장 */
+  .card { margin-bottom: 2rem; }
+  .hero-section { text-align: center; padding: 4rem 1rem; background-color: #fff; border-radius: 8px; }
+  .cta-button { display: inline-block; background-color: #007bff; color: white; padding: 0.8rem 2rem; border-radius: 5px; text-decoration: none; font-size: 1.1rem; }
+  .file-list { background-color: #fff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+  .file-item { display: grid; align-items: center; padding: 1rem; border-bottom: 1px solid #eee; gap: 1rem; }
+  .file-item:last-child { border-bottom: none; }
+  .file-item.header { background-color: #f8f9fa; font-weight: bold; }
+
+  /* 👇 그리드 컬럼 구조 수정 */
+  .data-header, .data-item { grid-template-columns: 3fr 1fr 1fr 1.5fr 1fr; }
+  .model-header, .model-item { grid-template-columns: 2.5fr 0.5fr 1fr 0.7fr 0.7fr 0.7fr 1.5fr 1fr; }
+
+  .status { padding: 0.2rem 0.5rem; border-radius: 10px; font-size: 0.8em; }
+  .status.original { background-color: #e7f3ff; color: #0056b3; }
+  .status.processed { background-color: #d4edda; color: #155724; }
+  .btn-action { background-color: #6c757d; color: white; padding: 0.4rem 0.8rem; border-radius: 5px; text-decoration: none; }
+  .btn-action.predict { background-color: #28a745; }
+</style>
+{% endblock %}

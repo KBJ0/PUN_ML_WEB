@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <h1>예측 결과</h1>
+  <p><small>모델: {{ model.model_name }}</small></p>
+
+  <div class="card">
+    <h2>예측 결과</h2>
+    {% if prediction is not none %}
+      <!-- 단일 예측 결과 -->
+      <div class="prediction-single">
+        <span>예측값:</span>
+        <span class="value">{{ "%.4f"|format(prediction) }}</span>
+      </div>
+    {% elif predictions_df_html %}
+      <!-- CSV 파일 예측 결과 -->
+      <p><small>입력 데이터에 예측 결과 컬럼(<strong>prediction</strong>)이 추가되었습니다.</small></p>
+      <div class="table-container">
+        {{ predictions_df_html|safe }}
+      </div>
+    {% else %}
+      <p>예측 결과를 표시할 수 없습니다.</p>
+    {% endif %}
+  </div>
+
+  <div class="next-step">
+    <a href="/data/models/{{ model.id }}/predict" class="button-secondary">다른 값으로 예측하기</a>
+    <a href="/" class="button-primary">마이페이지로 돌아가기</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .container { max-width: 960px; } .card { margin-bottom: 2rem; }
+  .prediction-single { text-align: center; padding: 2rem; }
+  .prediction-single span { display: block; }
+  .prediction-single .value { font-size: 3rem; font-weight: bold; color: #007bff; }
+  .table-container { max-height: 500px; overflow: auto; }
+  .table { width: 100%; }
+</style>
+{% endblock %}

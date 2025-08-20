@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+
+{% block content %}
+<!-- 👇 상세 정보가 포함된 로딩 오버레이 UI -->
+<div id="loading-overlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:9999; justify-content:center; align-items:center;">
+  <div class="loading-box" style="background:white; padding:2rem 3rem; border-radius:8px; text-align:center; box-shadow:0 4px 15px rgba(0,0,0,0.2);">
+    <h2>모델 학습 진행 중...</h2>
+    <p><small>데이터 크기에 따라 수 분 이상 소요될 수 있습니다.</small></p>
+    <div class="spinner" style="border:5px solid #f3f3f3; border-top:5px solid #3498db; border-radius:50%; width:40px; height:40px; animation:spin 1s linear infinite; margin:1.5rem auto 0;"></div>
+  </div>
+</div>
+
+<div class="container" id="main-container">
+  <h1>3. 모델 학습 설정 (XGBoost)</h1>
+
+  <form id="train-form" action="/data/train" method="post">
+    <input type="hidden" name="processed_file_path" value="{{ processed_path }}">
+    <input type="hidden" name="source_datafile_id" value="{{ datafile.id }}">
+
+    <div class="card">
+      <h2>전처리된 데이터 미리보기 (상위 50개)</h2>
+      <p><small>데이터 형태: {{ processed_shape }}</small></p>
+      <div class="table-container">{{ df_preview|safe }}</div>
+    </div>
+
+    <div class="card">
+      <h2>학습 설정</h2>
+      <div class="form-group">
+        <label for="target_column"><b>Target Column (예측 대상)</b>을 선택하세요:</label>
+        <select name="target_column" id="target_column" required>
+          <option value="">-- 선택 --</option>
+          {% for col in numeric_cols + categorical_cols %}
+          <option value="{{ col }}">{{ col }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label><b>Feature Columns (학습에 사용할 변수)</b></label>
+        <div class="encoding-guide">
+            <p><strong>One-Hot (추천):</strong> 고유값이 10개 이하인 경우.</p>
+            <p><strong>Target (추천):</strong> 고유값이 10개를 초과하는 경우.</p>
+            <p><strong>Sentence Embedding (추천):</strong> '비고'처럼 문장 자체에 의미가 있는 경우.</p>
+        </div>
+        <h4>수치형 컬럼</h4>
+        <div class="checkbox-group" id="numeric-features-group">
+          {% for col in numeric_cols %}<label data-feature-name="{{ col }}"><input type="checkbox" name="numeric_features" value="{{ col }}" checked> {{ col }}</label>{% endfor %}
+        </div>
+        <h4>범주형 컬럼 (인코딩 방식 선택)</h4>
+        <div class="categorical-encoding-group">
+          {% for col, card in cardinality.items() %}
+          <div class="rule-item" data-feature-name="{{ col }}">
+            <span class="column-name">{{ col }} <small>(고유값: {{ card }})</small></span>
+            <select name="encoding_method">
+              <option value="none">사용 안 함</option>
+              <option value="onehot" {% if card <= 10 %}selected{% endif %}>One-Hot {% if card <= 10 %}(추천){% endif %}</option>
+              <option value="target" {% if card > 10 %}selected{% endif %}>Target Encoding {% if card > 10 %}(추천){% endif %}</option>
+              <option value="sentence">Sentence Embedding</option>
+            </select>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="button-primary">XGBoost 모델 학습 시작</button>
+  </form>
+</div>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .container { max-width: 1200px; } .card { margin-bottom: 2rem; } .table-container { max-height: 400px; overflow: auto; } .table { width: 100%; border-collapse: collapse; } .table th, .table td { padding: 8px; text-align: left; border-bottom: 1px solid #ddd; } .form-group { margin-bottom: 1.5rem; } .form-group label { display: block; font-weight: bold; margin-bottom: 0.5rem; } select { width: 100%; padding: 0.75rem; } .checkbox-group { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 0.5rem; border: 1px solid #ccc; padding: 1rem; border-radius: 4px; max-height: 300px; overflow-y: auto; } .categorical-encoding-group { display: flex; flex-direction: column; gap: 10px; } .rule-item { display: grid; grid-template-columns: 1fr 200px; align-items: center; gap: 1rem; } .column-name small { color: #666; } .button-primary { width: 100%; font-size: 1.2rem; padding: 1rem; }
+  .encoding-guide { background-color: #f8f9fa; border-radius: 4px; padding: 0.5rem 1rem; margin-bottom: 1rem; font-size: 0.9em; }
+  .encoding-guide p { margin: 0.5rem 0; }
+  @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const form = document.getElementById('train-form');
+  const targetSelect = document.getElementById('target_column');
+  const loadingOverlay = document.getElementById('loading-overlay');
+
+  function updateFeatureSelection() {
+    const selectedTarget = targetSelect.value;
+    document.querySelectorAll('#numeric-features-group label').forEach(label => {
+      const checkbox = label.querySelector('input');
+      if (label.dataset.featureName === selectedTarget) {
+        checkbox.checked = false;
+        checkbox.disabled = true;
+        label.style.opacity = 0.5;
+        label.style.textDecoration = 'line-through';
+      } else {
+        checkbox.disabled = false;
+        label.style.opacity = 1;
+        label.style.textDecoration = 'none';
+      }
+    });
+    document.querySelectorAll('.categorical-encoding-group .rule-item').forEach(item => {
+      const select = item.querySelector('select');
+      if (item.dataset.featureName === selectedTarget) {
+        select.value = 'none';
+        select.disabled = true;
+        item.style.opacity = 0.5;
+      } else {
+        select.disabled = false;
+        item.style.opacity = 1;
+      }
+    });
+  }
+
+  targetSelect.addEventListener('change', updateFeatureSelection);
+
+  form.addEventListener('submit', function(e) {
+    e.preventDefault();
+    loadingOverlay.style.display = 'flex';
+
+    const payload = {
+      processed_file_path: form.elements.processed_file_path.value,
+      source_datafile_id: parseInt(form.elements.source_datafile_id.value),
+      target_column: form.elements.target_column.value,
+      numeric_features: Array.from(form.querySelectorAll('input[name="numeric_features"]:checked')).map(el => el.value),
+      one_hot_encode_features: [],
+      target_encode_features: [],
+      sentence_embedding_features: []
+    };
+    document.querySelectorAll('.categorical-encoding-group .rule-item').forEach(item => {
+      const col = item.dataset.featureName;
+      const method = item.querySelector('select').value;
+      if (method === 'onehot') payload.one_hot_encode_features.push(col);
+      else if (method === 'target') payload.target_encode_features.push(col);
+      else if (method === 'sentence') payload.sentence_embedding_features.push(col);
+    });
+
+    fetch(form.action, {
+      method: 'POST',
+      credentials: "same-origin",
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(response => {
+      if (response.ok) {
+        response.text().then(html => document.body.innerHTML = html);
+      } else {
+        loadingOverlay.style.display = 'none';
+        alert('모델 학습 중 오류가 발생했습니다. 서버 로그를 확인하세요.');
+      }
+    }).catch(() => {
+        loadingOverlay.style.display = 'none';
+        alert('서버와 통신 중 오류가 발생했습니다.');
+    });
+  });
+
+  updateFeatureSelection();
+});
+</script>
+{% endblock %}

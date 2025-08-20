@@ -1,0 +1,39 @@
+{% extends "base.html" %}{% block content %}
+<h1>데이터 업로드</h1>
+
+{% if error %}
+  <div class="error" style="color:#b00020;white-space:pre-wrap">{{ error }}</div>
+  {% if tried and tried|length %}
+    <p>시도한 인코딩: {{ tried|join(', ') }}</p>
+  {% endif %}
+{% endif %}
+
+<form method="post" enctype="multipart/form-data" action="/data/upload">
+  <div style="display:flex; gap:12px; align-items:center; flex-wrap:wrap;">
+    <input type="file" name="file" accept=".csv,.xlsx" required />
+
+    <label>인코딩(선택):
+      <select name="encoding_hint">
+        <option value="">자동 감지(권장)</option>
+        <option value="utf-16">utf-16</option>
+        <option value="utf-16-le">utf-16-le</option>
+        <option value="utf-16-be">utf-16-be</option>
+        <option value="cp949">cp949(ms949)</option>
+        <option value="euc-kr">euc-kr</option>
+        <option value="utf-8-sig">utf-8-sig</option>
+        <option value="utf-8">utf-8</option>
+        <option value="cp1252">cp1252</option>
+        <option value="latin1">latin1</option>
+      </select>
+    </label>
+
+    <button type="submit">업로드</button>
+  </div>
+
+  <p style="margin-top:8px;">
+    CSV는 인코딩을 자동 감지하고 실패 시 여러 후보(UTF‑16/CP949/UTF‑8/CP1252 등)를 순차 시도합니다.
+    엑셀의 “유니코드 텍스트(탭 구분)”는 보통 <b>UTF‑16 + 탭 구분</b>입니다.
+    자동으로도 실패하면 인코딩을 직접 선택해 재시도하세요.
+  </p>
+</form>
+{% endblock %}

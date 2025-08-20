@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container">
+  <h1>🚀 XGBoost 모델 학습 완료</h1>
+
+  <div class="card">
+    <h2>학습 결과</h2>
+    <ul>
+      <li><strong>모델명:</strong> <code>{{ model_name }}</code></li>
+      <li><strong>저장 경로:</strong> <code>{{ model_path }}</code></li>
+    </ul>
+  </div>
+
+  <div class="card">
+    <h2>모델 성능</h2>
+    <div class="performance-grid">
+      <div>
+        <span class="metric-name">RMSE</span>
+        <span class="metric-value">{{ performance.RMSE }}</span>
+      </div>
+      <div>
+        <span class="metric-name">MAE</span>
+        <span class="metric-value">{{ performance.MAE }}</span>
+      </div>
+      <div>
+        <span class="metric-name">R² Score</span>
+        <span class="metric-value">{{ performance.R2 }}</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="next-step">
+    <a href="/" class="button-primary">마이페이지로 돌아가기</a>
+  </div>
+</div>
+{% endblock %}
+
+{% block head_extra %}
+<style>
+  .container { max-width: 960px; } .card { margin-bottom: 2rem; } code { background-color: #eee; padding: 2px 4px; border-radius: 4px; }
+  .performance-grid { display: grid; grid-template-columns: repeat(3, 1fr); text-align: center; }
+  .metric-name { display: block; font-size: 1rem; color: #555; }
+  .metric-value { display: block; font-size: 2rem; font-weight: bold; color: #007bff; }
+  .next-step { text-align: center; }
+  .button-primary { background-color: #007bff; color: white; padding: 0.8rem 2rem; border-radius: 5px; text-decoration: none; font-size: 1.1rem; }
+</style>
+{% endblock %}
